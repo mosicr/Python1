@@ -1,0 +1,56 @@
+
+#!/usr/bin/env python
+
+import tensorflow as tf
+import numpy as np
+from tensorflow.examples.tutorials.mnist import input_data
+
+
+def init_weights(shape):
+    return tf.Variable(tf.random_normal(shape, stddev=0.01))
+#rm generates random normal distribution
+
+def model(X, w_h, w_o):
+    h = tf.nn.sigmoid(tf.matmul(X, w_h)) # this is a basic mlp, think 2 stacked logistic regressions
+    # rm matmul is matrix multiplication; image multiplied with weights; sigmoid makes it categorical ( 0 or 1 )
+    # rm then below he multiplies
+    # rm why does he do two matmuls ? anyhoo, why don't I abstract ( not care about it ) as it is image processing i.e. domain specific
+    return tf.matmul(h, w_o) # note that we dont take the softmax at the end because our cost fn does that for us
+
+
+mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+trX, trY, teX, teY = mnist.train.images, mnist.train.labels, mnist.test.images, mnist.test.labels
+# trX is array of images ( 784 pixel values per image )
+# trY is one hot label
+
+
+X = tf.placeholder("float", [None, 784])
+Y = tf.placeholder("float", [None, 10])
+
+w_h = init_weights([784, 625]) # rm weights variable; -> what is 625 ? 
+w_o = init_weights([625, 10])  # rm labels variable; -> why 625 labels ? we are processing 128 images at once; anyhoo init is random
+
+py_x = model(X, w_h, w_o)
+# rm passes input to model: image, weights, label ; model output is calculated weights and labels
+
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=py_x, labels=Y)) # compute costs
+train_op = tf.train.GradientDescentOptimizer(0.05).minimize(cost) # construct an optimizer
+predict_op = tf.argmax(py_x, 1)
+
+# Launch the graph in a session
+with tf.Session() as sess:
+    # you need to initialize all variables
+    tf.global_variables_initializer().run()
+
+    for i in range(100):
+        #b = range(0, len(trX), 128)
+        #print(list(b))
+        # rm stepping through pairs of values in increments of 128 ( 0, 128); (128, 256)
+
+        for start, end in zip(range(0, len(trX), 128), range(128, len(trX)+1, 128)):
+            sess.run(train_op, feed_dict={X: trX[start:end], Y: trY[start:end]})
+# rm X(trX) is batch of 128 images and corresponding labels ( Y i.e. trY )
+        print(i, np.mean(np.argmax(teY, axis=1) ==
+                         sess.run(predict_op, feed_dict={X: teX})))
+        print(sess.run(predict_op, feed_dict={X: teX}))
+        # prediction is argmax ie index of label vector where one is
